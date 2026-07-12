@@ -1,0 +1,20 @@
+# Go
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+coverage.*
+
+# Build / release
+/bwenv
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Local secrets & runtime (should NEVER be committed)
+*.env
+.env
+bwenv.local.yaml
