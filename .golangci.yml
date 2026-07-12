@@ -4,3 +4,9 @@ linters:
   enable:
     - gosec
     - unconvert
+  exclusions:
+    rules:
+      # Tests arbeiten mit Temp-Pfaden und Fixture-"Credentials".
+      - path: _test\.go
+        linters:
+          - gosec

@@ -3,11 +3,16 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
+	"github.com/rleusmann/bwenv/internal/config"
 	"github.com/rleusmann/bwenv/internal/format"
+	"github.com/rleusmann/bwenv/internal/resolver"
 	"github.com/rleusmann/bwenv/internal/runner"
+	"github.com/rleusmann/bwenv/internal/trust"
 )
 
 func newRunCmd() *cobra.Command {
@@ -44,6 +49,8 @@ func newExportCmd() *cobra.Command {
 		Short:   "Shell-Export-Statements ausgeben (für eval \"$(bwenv sh)\")",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			silent, _ := cmd.Flags().GetBool("silent")
+			hook, _ := cmd.Flags().GetBool("hook")
+			global, _ := cmd.Flags().GetBool("global")
 			timeout, _ := cmd.Flags().GetDuration("timeout")
 			formatName, _ := cmd.Flags().GetString("format")
 			if formatName != "sh" && formatName != "zsh" {
@@ -57,21 +64,46 @@ func newExportCmd() *cobra.Command {
 				defer cancel()
 			}
 
+			// Hook-Modus: Load/Unload-Diff, Failsafe immer aktiv.
+			if hook {
+				cmd.Print(hookOutput(ctx))
+				return nil
+			}
+
 			// Failsafe (Plan §3.4): im Silent-Modus führt *jeder* Fehler zu
 			// leerer Ausgabe und Exit 0 — die Shell darf nie blockieren.
-			env, err := resolveProject(ctx, !silent)
-			if err != nil {
+			fail := func(err error) error {
 				if silent {
 					return nil
 				}
 				return err
 			}
+
+			var env resolver.EnvMap
+			var err error
+			if global {
+				env, err = resolveGlobal(ctx, !silent)
+			} else {
+				// Trust gilt für den Auto-Load-Pfad: export lädt nur
+				// freigegebene Verzeichnisse (direnv-Stil).
+				cwd, cwdErr := os.Getwd()
+				if cwdErr != nil {
+					return fail(cwdErr)
+				}
+				if cfgPath, findErr := config.Find(cwd); findErr == nil {
+					dir := filepath.Dir(cfgPath)
+					if ok, _ := trust.IsAllowed(dir); !ok {
+						return fail(fmt.Errorf("%s ist nicht freigegeben — mit `bwenv allow` erlauben", dir))
+					}
+				}
+				env, err = resolveProject(ctx, !silent)
+			}
+			if err != nil {
+				return fail(err)
+			}
 			out, err := format.ShellExports(env)
 			if err != nil {
-				if silent {
-					return nil
-				}
-				return err
+				return fail(err)
 			}
 			cmd.Print(out)
 			return nil
@@ -79,6 +111,8 @@ func newExportCmd() *cobra.Command {
 	}
 	cmd.Flags().String("format", "sh", "Ausgabeformat: sh|zsh")
 	cmd.Flags().Bool("silent", false, "bei Fehlern still bleiben (exit 0)")
+	cmd.Flags().Bool("hook", false, "Hook-Modus: Load/Unload-Diff für die Shell-Integration")
+	cmd.Flags().Bool("global", false, "global:-Sektion der globalen Config laden")
 	cmd.Flags().Duration("timeout", 0, "harter Timeout, z. B. 300ms")
 	return cmd
 }
@@ -122,9 +156,21 @@ func newHookCmd() *cobra.Command {
 		Args:      cobra.ExactArgs(1),
 		ValidArgs: []string{"zsh"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			if args[0] != "zsh" {
+				return fmt.Errorf("shell %q nicht unterstützt (aktuell: zsh)", args[0])
+			}
+			cmd.Print(zshHookSnippet)
+			return nil
 		},
 	}
+}
+
+// trustTargetDir liefert das Argument-Verzeichnis oder das aktuelle.
+func trustTargetDir(args []string) (string, error) {
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	return os.Getwd()
 }
 
 func newAllowCmd() *cobra.Command {
@@ -133,7 +179,15 @@ func newAllowCmd() *cobra.Command {
 		Short: "Verzeichnis für Auto-Load erlauben",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			dir, err := trustTargetDir(args)
+			if err != nil {
+				return err
+			}
+			if err := trust.Allow(dir); err != nil {
+				return err
+			}
+			cmd.Printf("erlaubt: %s\n", dir)
+			return nil
 		},
 	}
 }
@@ -144,7 +198,15 @@ func newDenyCmd() *cobra.Command {
 		Short: "Verzeichnis für Auto-Load sperren",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			dir, err := trustTargetDir(args)
+			if err != nil {
+				return err
+			}
+			if err := trust.Deny(dir); err != nil {
+				return err
+			}
+			cmd.Printf("gesperrt: %s\n", dir)
+			return nil
 		},
 	}
 }

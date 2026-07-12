@@ -72,6 +72,19 @@ func Load(path string) (*Config, error) {
 	return &cfg, nil
 }
 
+// GlobalPath liefert den Pfad der globalen bwenv-Config
+// (~/.config/bwenv/config.yaml, respektiert $XDG_CONFIG_HOME).
+func GlobalPath() (string, error) {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, "bwenv", "config.yaml"), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config", "bwenv", "config.yaml"), nil
+}
+
 // Find sucht von dir aus aufwärts nach einer bwenv.yaml.
 func Find(dir string) (string, error) {
 	dir, err := filepath.Abs(dir)

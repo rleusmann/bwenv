@@ -88,7 +88,25 @@ func resolveProject(ctx context.Context, allowPrompt bool) (resolver.EnvMap, err
 	if err != nil {
 		return nil, err
 	}
+	return resolveEntries(ctx, cfg, cfg.Secrets, allowPrompt)
+}
 
+// resolveGlobal löst die global:-Sektion der globalen Config auf.
+func resolveGlobal(ctx context.Context, allowPrompt bool) (resolver.EnvMap, error) {
+	path, err := config.GlobalPath()
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := config.Load(path)
+	if err != nil {
+		return nil, err
+	}
+	return resolveEntries(ctx, cfg, cfg.Global, allowPrompt)
+}
+
+// resolveEntries öffnet das Backend (Agent bevorzugt) und löst entries auf.
+func resolveEntries(ctx context.Context, cfg *config.Config, entries []config.SecretEntry, allowPrompt bool) (resolver.EnvMap, error) {
+	var err error
 	// Läuft ein Agent, geht der Weg über ihn (Plan §3.2) — kein
 	// bw-serve-Neustart pro Aufruf. Sonst Direktpfad.
 	var p provider.Provider
@@ -115,7 +133,7 @@ func resolveProject(ctx context.Context, allowPrompt bool) (resolver.EnvMap, err
 	}
 	defer cleanup()
 
-	env, err := resolver.Resolve(ctx, p, cfg.Secrets)
+	env, err := resolver.Resolve(ctx, p, entries)
 	if err != nil {
 		return nil, redactError(env, err)
 	}

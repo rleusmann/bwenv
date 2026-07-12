@@ -11,6 +11,7 @@ import (
 
 	"github.com/rleusmann/bwenv/internal/config"
 	"github.com/rleusmann/bwenv/internal/provider"
+	"github.com/rleusmann/bwenv/internal/trust"
 )
 
 type fakeProv struct {
@@ -59,6 +60,14 @@ func inProjectDir(t *testing.T, yaml string) {
 	}
 	t.Chdir(dir)
 	t.Setenv("BWENV_AGENT_SOCKET", filepath.Join(dir, "kein-agent.sock"))
+	// Isolierter Trust-Store; das Projektverzeichnis ist per Default erlaubt.
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".xdg"))
+	if err := trust.Allow(dir); err != nil {
+		t.Fatal(err)
+	}
+	// Kein geerbter Hook-Zustand aus der Umgebung des Test-Runners.
+	t.Setenv("BWENV_HOOK_DIR", "")
+	t.Setenv("BWENV_HOOK_VARS", "")
 }
 
 const testYAML = `
