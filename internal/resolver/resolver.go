@@ -20,17 +20,20 @@ type FolderFetcher interface {
 
 // Resolve löst alle entries gegen p auf. Spätere Einträge überschreiben
 // frühere (explizite Einträge können so Bulk-Ergebnisse übersteuern).
+// Im Fehlerfall wird die bis dahin aufgelöste (partielle) EnvMap mit
+// zurückgegeben, damit Aufrufer bekannte Werte aus Fehlertexten redigieren
+// können.
 func Resolve(ctx context.Context, p provider.Provider, entries []config.SecretEntry) (EnvMap, error) {
 	env := EnvMap{}
 	for i, e := range entries {
 		if e.From != nil {
 			ff, ok := p.(FolderFetcher)
 			if !ok {
-				return nil, fmt.Errorf("eintrag %d: provider unterstützt keine from/folder-Auflösung", i)
+				return env, fmt.Errorf("eintrag %d: provider unterstützt keine from/folder-Auflösung", i)
 			}
 			secrets, err := ff.FetchFolder(ctx, e.From.Folder)
 			if err != nil {
-				return nil, fmt.Errorf("folder %q: %w", e.From.Folder, err)
+				return env, fmt.Errorf("folder %q: %w", e.From.Folder, err)
 			}
 			for name, s := range secrets {
 				env[name] = s.Value
@@ -45,7 +48,7 @@ func Resolve(ctx context.Context, p provider.Provider, entries []config.SecretEn
 			Field:  e.Field,
 		}})
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", e.Env, err)
+			return env, fmt.Errorf("%s: %w", e.Env, err)
 		}
 		env[e.Env] = secrets[e.Env].Value
 	}

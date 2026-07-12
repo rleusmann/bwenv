@@ -1,7 +1,13 @@
 package cli
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/spf13/cobra"
+
+	"github.com/rleusmann/bwenv/internal/format"
+	"github.com/rleusmann/bwenv/internal/runner"
 )
 
 func newRunCmd() *cobra.Command {
@@ -10,7 +16,23 @@ func newRunCmd() *cobra.Command {
 		Short: "Secrets injizieren und Befehl starten",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			env, err := resolveProject(cmd.Context(), true)
+			if err != nil {
+				return err
+			}
+			code, err := runner.Run(cmd.Context(), args, runner.Options{
+				Env:    env,
+				Stdin:  cmd.InOrStdin(),
+				Stdout: cmd.OutOrStdout(),
+				Stderr: cmd.ErrOrStderr(),
+			})
+			if err != nil {
+				return err
+			}
+			if code != 0 {
+				return exitCodeError(code)
+			}
+			return nil
 		},
 	}
 }
@@ -21,7 +43,38 @@ func newExportCmd() *cobra.Command {
 		Aliases: []string{"sh"},
 		Short:   "Shell-Export-Statements ausgeben (für eval \"$(bwenv sh)\")",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			silent, _ := cmd.Flags().GetBool("silent")
+			timeout, _ := cmd.Flags().GetDuration("timeout")
+			formatName, _ := cmd.Flags().GetString("format")
+			if formatName != "sh" && formatName != "zsh" {
+				return fmt.Errorf("unbekanntes format %q (unterstützt: sh, zsh)", formatName)
+			}
+
+			ctx := cmd.Context()
+			if timeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, timeout)
+				defer cancel()
+			}
+
+			// Failsafe (Plan §3.4): im Silent-Modus führt *jeder* Fehler zu
+			// leerer Ausgabe und Exit 0 — die Shell darf nie blockieren.
+			env, err := resolveProject(ctx, !silent)
+			if err != nil {
+				if silent {
+					return nil
+				}
+				return err
+			}
+			out, err := format.ShellExports(env)
+			if err != nil {
+				if silent {
+					return nil
+				}
+				return err
+			}
+			cmd.Print(out)
+			return nil
 		},
 	}
 	cmd.Flags().String("format", "sh", "Ausgabeformat: sh|zsh")
@@ -35,7 +88,12 @@ func newShowCmd() *cobra.Command {
 		Use:   "show",
 		Short: "Geladene Variablennamen anzeigen (Werte maskiert)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			env, err := resolveProject(cmd.Context(), true)
+			if err != nil {
+				return err
+			}
+			cmd.Print(format.Masked(env))
+			return nil
 		},
 	}
 }

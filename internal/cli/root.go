@@ -39,7 +39,7 @@ ohne dass Secrets in Shell-History, Prozessliste oder Klartext-Dateien landen.`,
 	return root
 }
 
-// Execute runs the root command.
-func Execute() error {
-	return newRootCmd().Execute()
+// Execute führt den Command-Tree aus und liefert den Prozess-Exit-Code.
+func Execute() int {
+	return runRoot(newRootCmd())
 }
