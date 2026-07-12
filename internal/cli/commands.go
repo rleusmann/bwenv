@@ -99,36 +99,19 @@ func newShowCmd() *cobra.Command {
 }
 
 func newUnlockCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "unlock",
-		Short: "Session entsperren (Master-Passwort-Prompt oder Touch ID)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
-		},
-	}
-	cmd.Flags().Bool("enroll-touchid", false, "Touch-ID-Unlock einrichten (macOS)")
-	return cmd
+	return newUnlockCmdImpl()
 }
 
 func newLockCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "lock",
-		Short: "Session sofort sperren",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
-		},
-	}
+	return newLockCmdImpl()
 }
 
 func newAgentCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "agent [stop|status]",
+		Use:   "agent",
 		Short: "Agent-Lifecycle verwalten",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
-		},
 	}
+	cmd.AddCommand(newAgentRunCmd(), newAgentStatusCmd(), newAgentStopCmd())
 	return cmd
 }
 

@@ -89,9 +89,29 @@ func resolveProject(ctx context.Context, allowPrompt bool) (resolver.EnvMap, err
 		return nil, err
 	}
 
-	p, cleanup, err := openProvider(ctx, cfg, allowPrompt)
-	if err != nil {
-		return nil, err
+	// Läuft ein Agent, geht der Weg über ihn (Plan §3.2) — kein
+	// bw-serve-Neustart pro Aufruf. Sonst Direktpfad.
+	var p provider.Provider
+	cleanup := func() {}
+	if c, st, ok := tryAgent(ctx); ok {
+		if st != "unlocked" {
+			if !allowPrompt {
+				return nil, errors.New("vault ist gesperrt — `bwenv unlock` ausführen")
+			}
+			pw, err := readPassword("Master-Passwort: ")
+			if err != nil {
+				return nil, err
+			}
+			if err := c.Unlock(ctx, pw); err != nil {
+				return nil, err
+			}
+		}
+		p = c
+	} else {
+		p, cleanup, err = openProvider(ctx, cfg, allowPrompt)
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer cleanup()
 

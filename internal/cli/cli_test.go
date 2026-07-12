@@ -49,6 +49,8 @@ func withFakeProvider(t *testing.T, p provider.Provider, err error) {
 }
 
 // inProjectDir legt eine bwenv.yaml in ein Temp-Verzeichnis und wechselt hinein.
+// Der Agent-Socket zeigt dabei auf einen toten Pfad, damit Tests nie einen
+// echten Agent des Users treffen.
 func inProjectDir(t *testing.T, yaml string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -56,6 +58,7 @@ func inProjectDir(t *testing.T, yaml string) {
 		t.Fatal(err)
 	}
 	t.Chdir(dir)
+	t.Setenv("BWENV_AGENT_SOCKET", filepath.Join(dir, "kein-agent.sock"))
 }
 
 const testYAML = `
