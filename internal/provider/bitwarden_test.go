@@ -16,8 +16,27 @@ func containsFold(haystack, needle string) bool {
 
 // fakeBwServe emuliert die REST-API von `bw serve`.
 func fakeBwServe(t *testing.T, status string, items []map[string]any) *httptest.Server {
+	return fakeBwServeWithFolders(t, status, items, nil)
+}
+
+func fakeBwServeWithFolders(t *testing.T, status string, items []map[string]any, folders []map[string]any) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("GET /list/object/folders", func(w http.ResponseWriter, r *http.Request) {
+		search := r.URL.Query().Get("search")
+		var matched []map[string]any
+		for _, f := range folders {
+			name, _ := f["name"].(string)
+			if search == "" || containsFold(name, search) {
+				matched = append(matched, f)
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"success": true,
+			"data":    map[string]any{"object": "list", "data": matched},
+		})
+	})
 
 	mux.HandleFunc("GET /status", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -54,9 +73,16 @@ func fakeBwServe(t *testing.T, status string, items []map[string]any) *httptest.
 
 	mux.HandleFunc("GET /list/object/items", func(w http.ResponseWriter, r *http.Request) {
 		search := r.URL.Query().Get("search")
+		folderID := r.URL.Query().Get("folderid")
 		var matched []map[string]any
 		for _, it := range items {
 			name, _ := it["name"].(string)
+			if folderID != "" {
+				fid, _ := it["folderId"].(string)
+				if fid != folderID {
+					continue
+				}
+			}
 			if search == "" || containsFold(name, search) {
 				matched = append(matched, it)
 			}
@@ -213,6 +239,60 @@ func TestFetchFieldNotFound(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("Fetch für fehlendes Feld: Fehler erwartet, bekam nil")
+	}
+}
+
+func TestFetchFolder(t *testing.T) {
+	folders := []map[string]any{
+		{"object": "folder", "id": "f-1", "name": "dev-env"},
+		{"object": "folder", "id": "f-2", "name": "dev-env-alt"},
+	}
+	items := []map[string]any{
+		{
+			"object": "item", "id": "id-10", "name": "app secrets", "folderId": "f-1",
+			"fields": []map[string]any{
+				{"name": "FOO", "value": "foo-val", "type": 1},
+				{"name": "BAR", "value": "bar-val", "type": 0},
+			},
+		},
+		{
+			"object": "item", "id": "id-11", "name": "more secrets", "folderId": "f-1",
+			"fields": []map[string]any{
+				{"name": "BAZ", "value": "baz-val", "type": 1},
+			},
+		},
+		{
+			"object": "item", "id": "id-12", "name": "anderswo", "folderId": "f-2",
+			"fields": []map[string]any{
+				{"name": "NOPE", "value": "nope", "type": 1},
+			},
+		},
+	}
+	srv := fakeBwServeWithFolders(t, "unlocked", items, folders)
+	c := NewClient(srv.URL)
+
+	got, err := c.FetchFolder(context.Background(), "dev-env")
+	if err != nil {
+		t.Fatalf("FetchFolder: %v", err)
+	}
+	want := map[string]string{"FOO": "foo-val", "BAR": "bar-val", "BAZ": "baz-val"}
+	if len(got) != len(want) {
+		t.Fatalf("FetchFolder lieferte %d Einträge, want %d: %v", len(got), len(want), got)
+	}
+	for env, val := range want {
+		if got[env].Value != val {
+			t.Errorf("FetchFolder[%s] = %q, want %q", env, got[env].Value, val)
+		}
+	}
+}
+
+func TestFetchFolderNotFound(t *testing.T) {
+	srv := fakeBwServeWithFolders(t, "unlocked", nil, nil)
+	c := NewClient(srv.URL)
+
+	_, err := c.FetchFolder(context.Background(), "gibt es nicht")
+	if err == nil {
+		t.Fatal("FetchFolder für fehlenden Folder: Fehler erwartet")
 	}
 }
 

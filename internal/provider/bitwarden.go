@@ -204,6 +204,59 @@ func (c *Client) findInList(ctx context.Context, search string, keep func(*bwIte
 	return out, nil
 }
 
+// FetchFolder löst alle Custom-Fields aller Items eines Folders auf
+// (Strategy field-name-as-env): jedes Feld wird zur gleichnamigen Env-Var.
+func (c *Client) FetchFolder(ctx context.Context, folder string) (map[string]Secret, error) {
+	folderID, err := c.findFolderID(ctx, folder)
+	if err != nil {
+		return nil, err
+	}
+	var data struct {
+		Data []bwItem `json:"data"`
+	}
+	path := "/list/object/items?folderid=" + url.QueryEscape(folderID)
+	if err := c.do(ctx, http.MethodGet, path, nil, &data); err != nil {
+		return nil, err
+	}
+	out := map[string]Secret{}
+	for _, item := range data.Data {
+		for _, f := range item.Fields {
+			if f.Name == "" {
+				continue
+			}
+			out[f.Name] = Secret{Value: f.Value}
+		}
+	}
+	return out, nil
+}
+
+func (c *Client) findFolderID(ctx context.Context, name string) (string, error) {
+	var data struct {
+		Data []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"data"`
+	}
+	path := "/list/object/folders?search=" + url.QueryEscape(name)
+	if err := c.do(ctx, http.MethodGet, path, nil, &data); err != nil {
+		return "", err
+	}
+	var ids []string
+	for _, f := range data.Data {
+		if f.Name == name {
+			ids = append(ids, f.ID)
+		}
+	}
+	switch len(ids) {
+	case 0:
+		return "", fmt.Errorf("folder %q nicht gefunden", name)
+	case 1:
+		return ids[0], nil
+	default:
+		return "", fmt.Errorf("folder %q ist mehrdeutig (%d Treffer)", name, len(ids))
+	}
+}
+
 func extractField(item *bwItem, field string) (string, error) {
 	switch field {
 	case "password":
