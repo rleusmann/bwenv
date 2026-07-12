@@ -3,6 +3,7 @@ package cli
 
 import (
 	"errors"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -22,6 +23,11 @@ ohne dass Secrets in Shell-History, Prozessliste oder Klartext-Dateien landen.`,
 		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// Hardening (Plan §7): keine Core-Dumps, bevor Secrets in den
+			// Prozess-Speicher gelangen können.
+			_ = syscall.Setrlimit(syscall.RLIMIT_CORE, &syscall.Rlimit{Cur: 0, Max: 0})
+		},
 	}
 
 	root.AddCommand(

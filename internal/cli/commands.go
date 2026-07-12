@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -218,10 +219,13 @@ func newConfigCmd() *cobra.Command {
 	}
 	cmd.AddCommand(&cobra.Command{
 		Use:   "server <url>",
-		Short: "Vaultwarden-/Bitwarden-Endpunkt setzen",
+		Short: "Vaultwarden-/Bitwarden-Endpunkt setzen (Passthrough an `bw config server`)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			bw := exec.CommandContext(cmd.Context(), "bw", "config", "server", args[0]) //nolint:gosec // G204: URL kommt bewusst vom User (CLI-Arg)
+			bw.Stdout = cmd.OutOrStdout()
+			bw.Stderr = cmd.ErrOrStderr()
+			return bw.Run()
 		},
 	})
 	return cmd
