@@ -78,6 +78,7 @@ func inProjectDir(t *testing.T, yaml string) {
 	// Kein geerbter Hook-Zustand aus der Umgebung des Test-Runners.
 	t.Setenv("BWENV_HOOK_DIR", "")
 	t.Setenv("BWENV_HOOK_VARS", "")
+	t.Setenv("BWENV_HOOK_GLOBAL", "")
 }
 
 const testYAML = `

@@ -15,8 +15,9 @@ import (
 
 // Statusvariablen, über die der Hook Load-Zustand zwischen Aufrufen trägt.
 const (
-	hookDirVar  = "BWENV_HOOK_DIR"
-	hookVarsVar = "BWENV_HOOK_VARS"
+	hookDirVar    = "BWENV_HOOK_DIR"
+	hookVarsVar   = "BWENV_HOOK_VARS"
+	hookGlobalVar = "BWENV_HOOK_GLOBAL"
 )
 
 // currentTrustedConfigDir liefert das Verzeichnis der nächstgelegenen
@@ -41,62 +42,84 @@ func currentTrustedConfigDir() string {
 	return dir
 }
 
-// hookOutput berechnet das eval-bare Skript für den chpwd-Hook:
-// Unload beim Verlassen, Load beim Betreten eines erlaubten Verzeichnisses.
-// Fehler führen nie zu einem Fehl-Exit (Failsafe) — höchstens zu weniger Output.
+// hookOutput berechnet das eval-bare Skript für den precmd-Hook:
+// global:-Secrets einmal pro Shell (sobald ein entsperrter Agent da ist),
+// Projekt-Secrets beim Betreten/Verlassen erlaubter Verzeichnisse.
+// Neues Laden läuft ausschließlich über den Agent — der Hook startet nie
+// selbst bw serve (zu langsam für jeden Prompt). Fehler führen nie zu
+// einem Fehl-Exit (Failsafe), höchstens zu weniger Output.
 func hookOutput(ctx context.Context) string {
 	prevDir := os.Getenv(hookDirVar)
 	prevVars := strings.Fields(os.Getenv(hookVarsVar))
+	globalDone := os.Getenv(hookGlobalVar) != ""
 
 	newDir := currentTrustedConfigDir()
-	if newDir == prevDir {
-		return "" // Kein Wechsel — kein Vault-Zugriff, keine Ausgabe.
+	if newDir == prevDir && globalDone {
+		return "" // Nichts zu tun — kein Socket-, kein Vault-Zugriff.
+	}
+
+	agentReady := false
+	if _, st, ok := tryAgent(ctx); ok && st == "unlocked" {
+		agentReady = true
 	}
 
 	var b strings.Builder
-	if prevDir != "" {
-		names := append(append([]string{}, prevVars...), hookDirVar, hookVarsVar)
-		b.WriteString("unset " + strings.Join(names, " ") + "\n")
-	}
-	if newDir != "" {
-		env, err := resolveProject(ctx, false)
-		if err != nil {
-			return b.String() // Failsafe: nur Unload; nächster Hook versucht es erneut.
-		}
-		exports, err := format.ShellExports(env)
-		if err != nil {
-			return b.String()
-		}
-		names := make([]string, 0, len(env))
-		for name := range env {
-			names = append(names, name)
-		}
-		sort.Strings(names)
 
-		b.WriteString(exports)
-		state, err := format.ShellExports(map[string]string{
-			hookDirVar:  newDir,
-			hookVarsVar: strings.Join(names, " "),
-		})
-		if err != nil {
-			return ""
+	// Überall-Secrets einmal pro Shell; solange kein entsperrter Agent da
+	// ist, bleibt das Flag ungesetzt und der nächste Prompt versucht es neu.
+	if !globalDone && agentReady {
+		if env, err := resolveGlobal(ctx, false); err == nil {
+			if exports, err := format.ShellExports(env); err == nil {
+				b.WriteString(exports)
+				b.WriteString(exportStatement(hookGlobalVar, "1"))
+			}
 		}
-		b.WriteString(state)
+	}
+
+	// Projekt-Teil (direnv-Stil Load/Unload).
+	if newDir != prevDir {
+		if prevDir != "" {
+			names := append(append([]string{}, prevVars...), hookDirVar, hookVarsVar)
+			b.WriteString("unset " + strings.Join(names, " ") + "\n")
+		}
+		if newDir != "" && agentReady {
+			if env, err := resolveProject(ctx, false); err == nil {
+				if exports, err := format.ShellExports(env); err == nil {
+					names := make([]string, 0, len(env))
+					for name := range env {
+						names = append(names, name)
+					}
+					sort.Strings(names)
+					b.WriteString(exports)
+					b.WriteString(exportStatement(hookDirVar, newDir))
+					b.WriteString(exportStatement(hookVarsVar, strings.Join(names, " ")))
+				}
+			}
+		}
 	}
 	return b.String()
 }
 
+// exportStatement rendert ein einzelnes export-Statement.
+func exportStatement(name, value string) string {
+	out, err := format.ShellExports(map[string]string{name: value})
+	if err != nil {
+		return ""
+	}
+	return out
+}
+
 // zshHookSnippet ist die Ausgabe von `bwenv hook zsh` (für die .zshrc).
+// precmd statt chpwd: so kommen global:-Secrets und Projekt-Secrets auch
+// in bereits offenen Shells beim nächsten Prompt an, sobald `bwenv unlock`
+// gelaufen ist.
 const zshHookSnippet = `# bwenv hook für zsh — in der .zshrc: eval "$(bwenv hook zsh)"
 _bwenv_hook() {
   eval "$(command bwenv export --hook --timeout=300ms)"
 }
-typeset -ag chpwd_functions
-if (( ! ${chpwd_functions[(I)_bwenv_hook]} )); then
-  chpwd_functions+=(_bwenv_hook)
+typeset -ag precmd_functions
+if (( ! ${precmd_functions[(I)_bwenv_hook]} )); then
+  precmd_functions+=(_bwenv_hook)
 fi
-# Überall-Secrets (global:-Sektion) einmal beim Shell-Init laden.
-eval "$(command bwenv export --global --silent --timeout=500ms)"
-# Initialer Lauf für das aktuelle Verzeichnis.
 _bwenv_hook
 `

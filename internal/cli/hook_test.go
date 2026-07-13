@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rleusmann/bwenv/internal/config"
+	"github.com/rleusmann/bwenv/internal/provider"
 	"github.com/rleusmann/bwenv/internal/trust"
 )
 
@@ -179,9 +181,94 @@ func TestHookZshSnippet(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("hook zsh: exit=%d", code)
 	}
-	for _, want := range []string{"_bwenv_hook", "chpwd_functions", "export --hook", "--timeout"} {
+	for _, want := range []string{"_bwenv_hook", "precmd_functions", "export --hook", "--timeout"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("Snippet ohne %q:\n%s", want, out)
 		}
+	}
+}
+
+// writeGlobalConfig legt eine globale Config mit einem global:-Eintrag an.
+func writeGlobalConfig(t *testing.T) {
+	t.Helper()
+	cfgDir := os.Getenv("XDG_CONFIG_HOME") + "/bwenv"
+	if err := os.MkdirAll(cfgDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	yaml := "version: 1\nglobal:\n  - env: GH_TOKEN\n    item: \"app\"\n    field: password\n"
+	if err := os.WriteFile(cfgDir+"/config.yaml", []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHookLoadsGlobalsOncePerShell(t *testing.T) {
+	inProjectDir(t, testYAML)
+	unlockTestAgent(t)
+	writeGlobalConfig(t)
+
+	out, _, code := execute("export", "--hook")
+	if code != 0 {
+		t.Fatalf("exit = %d", code)
+	}
+	if !strings.Contains(out, "export GH_TOKEN='geheim'") {
+		t.Errorf("globaler Export fehlt:\n%s", out)
+	}
+	if !strings.Contains(out, "export BWENV_HOOK_GLOBAL='1'") {
+		t.Errorf("Global-Flag fehlt:\n%s", out)
+	}
+
+	// Mit gesetztem Flag darf der Global-Teil nicht erneut kommen.
+	cwd, _ := os.Getwd()
+	t.Setenv("BWENV_HOOK_GLOBAL", "1")
+	t.Setenv("BWENV_HOOK_DIR", cwd)
+	t.Setenv("BWENV_HOOK_VARS", "BAR FOO")
+	out, _, code = execute("export", "--hook")
+	if code != 0 || out != "" {
+		t.Fatalf("Fast path verletzt: exit=%d out=%q", code, out)
+	}
+}
+
+func TestHookRetriesGlobalsAfterUnlock(t *testing.T) {
+	inProjectDir(t, testYAML)
+	writeGlobalConfig(t)
+	ag := startCLITestAgent(t) // gesperrt
+
+	// Agent gesperrt → kein Global-Load, kein Flag.
+	out, _, code := execute("export", "--hook")
+	if code != 0 {
+		t.Fatalf("exit = %d", code)
+	}
+	if strings.Contains(out, "GH_TOKEN") || strings.Contains(out, "BWENV_HOOK_GLOBAL") {
+		t.Fatalf("gesperrter Agent darf nichts laden:\n%s", out)
+	}
+
+	// Nach dem Unlock lädt der nächste Prompt Global UND Projekt.
+	if err := ag.Unlock(context.Background(), "correct horse"); err != nil {
+		t.Fatal(err)
+	}
+	out, _, code = execute("export", "--hook")
+	if code != 0 {
+		t.Fatalf("exit = %d", code)
+	}
+	for _, want := range []string{"export GH_TOKEN='geheim'", "export FOO='geheim'", "export BWENV_HOOK_GLOBAL='1'"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("nach Unlock fehlt %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestHookNeverStartsBwServeItself(t *testing.T) {
+	inProjectDir(t, testYAML) // Socket tot → kein Agent
+
+	// Der Direktpfad (bw serve starten) darf im Hook-Modus nie laufen.
+	orig := openProvider
+	openProvider = func(context.Context, *config.Config, bool) (provider.Provider, func(), error) {
+		panic("hook darf den Direktpfad (bw serve) nicht benutzen")
+	}
+	t.Cleanup(func() { openProvider = orig })
+
+	out, _, code := execute("export", "--hook")
+	if code != 0 || strings.Contains(out, "export FOO") {
+		t.Fatalf("Hook ohne Agent muss leer bleiben: exit=%d out=%q", code, out)
 	}
 }
