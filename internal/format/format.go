@@ -47,7 +47,7 @@ func Masked(env map[string]string) string {
 	return b.String()
 }
 
-// singleQuote quotet s für POSIX-Shells: '…' mit '\'' für eingebettete Quotes.
+// singleQuote quotet s für POSIX-Shells: '…' mit '\” für eingebettete Quotes.
 func singleQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
