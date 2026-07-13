@@ -49,10 +49,9 @@ homebrew_casks:
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/rleusmann/bwenv
     description: Inject Vaultwarden/Bitwarden secrets as environment variables (direnv-style)
+    dependencies:
+      - formula: bitwarden-cli
     caveats: |
-      bwenv requires the Bitwarden CLI:
-        brew install bitwarden-cli
-
       Enable the shell integration by adding this to your ~/.zshrc:
         eval "$(bwenv hook zsh)"
 
