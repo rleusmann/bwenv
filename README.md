@@ -7,6 +7,17 @@ injizieren — ohne dass Secrets in Shell-History, Prozessliste (`ps`) oder Klar
 > implementiert; Touch ID und Release-Automation stehen aus. Design:
 > [`docs/superpowers/specs/2026-07-13-bwenv-design.md`](docs/superpowers/specs/2026-07-13-bwenv-design.md).
 
+## Installation
+
+```bash
+brew install --cask rleusmann/tap/bwenv   # macOS (inkl. Touch-ID-Support)
+go install github.com/rleusmann/bwenv/cmd/bwenv@latest   # aus den Quellen
+```
+
+Zusätzlich wird die [`bw`-CLI](https://bitwarden.com/help/cli/) benötigt (`brew install bitwarden-cli`).
+Linux-Binaries liegen an den [GitHub-Releases](https://github.com/rleusmann/bwenv/releases);
+Paketmanager-Support ist geplant.
+
 ## Nutzung
 
 ```bash

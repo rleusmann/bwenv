@@ -40,3 +40,20 @@ changelog:
       - "^docs:"
       - "^ci:"
       - "^chore:"
+
+homebrew_casks:
+  - name: bwenv
+    repository:
+      owner: rleusmann
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/rleusmann/bwenv
+    description: Inject Vaultwarden/Bitwarden secrets as environment variables (direnv-style)
+    # Unsignierte Binaries: Quarantäne-Flag nach der Installation entfernen,
+    # sonst blockiert Gatekeeper den ersten Start.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/bwenv"]
+          end
