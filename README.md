@@ -10,8 +10,13 @@ injizieren — ohne dass Secrets in Shell-History, Prozessliste (`ps`) oder Klar
 ## Installation
 
 ```bash
-brew install --cask rleusmann/tap/bwenv   # macOS (inkl. Touch-ID-Support)
-go install github.com/rleusmann/bwenv/cmd/bwenv@latest   # aus den Quellen
+# macOS (inkl. Touch-ID-Support):
+brew tap rleusmann/tap
+brew trust rleusmann/tap                  # Homebrew verlangt Trust für Fremd-Taps
+brew install --cask bwenv
+
+# oder aus den Quellen:
+go install github.com/rleusmann/bwenv/cmd/bwenv@latest
 ```
 
 Zusätzlich wird die [`bw`-CLI](https://bitwarden.com/help/cli/) benötigt (`brew install bitwarden-cli`).
