@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/rleusmann/bwenv/internal/agent"
+	"github.com/rleusmann/bwenv/internal/credstore"
 	"github.com/rleusmann/bwenv/internal/provider"
 )
 
@@ -154,14 +155,15 @@ func newAgentStopCmd() *cobra.Command {
 	}
 }
 
+// newCredStore liefert den Touch-ID-Credstore; in Tests austauschbar.
+var newCredStore = credstore.New
+
 func newUnlockCmdImpl() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "unlock",
 		Short: "Session entsperren (Master-Passwort-Prompt oder Touch ID)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if enroll, _ := cmd.Flags().GetBool("enroll-touchid"); enroll {
-				return fmt.Errorf("--enroll-touchid: %w", errNotImplemented)
-			}
+			enroll, _ := cmd.Flags().GetBool("enroll-touchid")
 			ctx := cmd.Context()
 
 			c, st, ok := tryAgent(ctx)
@@ -174,9 +176,47 @@ func newUnlockCmdImpl() *cobra.Command {
 					return errors.New("agent wurde gestartet, antwortet aber nicht")
 				}
 			}
+
+			if enroll {
+				store := newCredStore()
+				if !store.Available() {
+					return errors.New("diese Plattform unterstützt kein Touch ID")
+				}
+				pw, err := readPassword("Master-Passwort: ")
+				if err != nil {
+					return err
+				}
+				// Verifikation vor dem Enrollment: sperren und mit dem
+				// eingegebenen Passwort frisch entsperren — ein falsches
+				// Passwort landet nie in der Keychain.
+				if err := c.Lock(ctx); err != nil {
+					return err
+				}
+				if err := c.Unlock(ctx, pw); err != nil {
+					return fmt.Errorf("passwort-verifikation fehlgeschlagen: %w", err)
+				}
+				if err := store.Enroll(pw); err != nil {
+					return err
+				}
+				cmd.Println("Touch-ID-Unlock eingerichtet — `bwenv unlock` nutzt ab jetzt Touch ID")
+				return nil
+			}
+
 			if st == "unlocked" {
 				cmd.Println("bereits entsperrt")
 				return nil
+			}
+
+			// Touch ID bevorzugen, wenn eingerichtet; jeder Fehler fällt
+			// sauber auf den Passwort-Prompt zurück.
+			store := newCredStore()
+			if store.Available() && store.Enrolled() {
+				if pw, err := store.Retrieve("bwenv entsperren"); err == nil {
+					if err := c.Unlock(ctx, pw); err == nil {
+						cmd.Println("entsperrt (Touch ID)")
+						return nil
+					}
+				}
 			}
 
 			pw, err := readPassword("Master-Passwort: ")

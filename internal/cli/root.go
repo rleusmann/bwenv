@@ -2,7 +2,6 @@
 package cli
 
 import (
-	"errors"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -10,8 +9,6 @@ import (
 
 // Version is set at build time via -ldflags.
 var Version = "dev"
-
-var errNotImplemented = errors.New("noch nicht implementiert")
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{

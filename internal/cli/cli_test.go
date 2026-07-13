@@ -10,9 +10,17 @@ import (
 	"testing"
 
 	"github.com/rleusmann/bwenv/internal/config"
+	"github.com/rleusmann/bwenv/internal/credstore"
 	"github.com/rleusmann/bwenv/internal/provider"
 	"github.com/rleusmann/bwenv/internal/trust"
 )
+
+func TestMain(m *testing.M) {
+	// Tests dürfen nie den echten Keychain-Store treffen (würde bei
+	// enrolltem Credential echte Touch-ID-Prompts auslösen).
+	newCredStore = func() credstore.Store { return &mockStore{} }
+	os.Exit(m.Run())
+}
 
 type fakeProv struct {
 	values map[string]string // "<item>/<field>" → Wert

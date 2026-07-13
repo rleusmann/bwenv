@@ -11,6 +11,7 @@ injizieren — ohne dass Secrets in Shell-History, Prozessliste (`ps`) oder Klar
 
 ```bash
 bwenv unlock                    # einmal pro Boot: Agent starten + Session entsperren
+bwenv unlock --enroll-touchid   # optional (macOS): danach entsperrt ein Touch-ID-Tap
 bwenv run -- npm start          # Secrets holen und Befehl mit Env-Vars starten
 eval "$(bwenv sh)"              # Variablen in die aktuelle Shell laden
 bwenv show                      # geladene Var-Namen, Werte maskiert
@@ -64,6 +65,13 @@ global:
   `bwenv.yaml` löst nie ungefragt Vault-Zugriffe aus.
 - **Hardening:** Master-Passwort nur per No-Echo-Prompt, `RLIMIT_CORE=0`, Redaction bekannter
   Secret-Werte in Fehlermeldungen.
+- **Touch ID (opt-in, macOS):** `bwenv unlock --enroll-touchid` verifiziert das Master-Passwort
+  gegen den Vault und legt es in der Keychain ab; jeder Unlock verlangt danach eine frische
+  biometrische Prüfung (LocalAuthentication), mit Passwort-Prompt als Fallback. Default bleibt
+  RAM-only. *Hinweis:* Secure-Enclave-gated Keychain-Items bräuchten ein signiertes Binary —
+  unsignierte Builds nutzen das Login-Keychain-Item plus In-Prozess-Biometrie-Gate
+  (siehe `internal/credstore`). Benötigt einen cgo-Build (`CGO_ENABLED=1`); ohne cgo oder auf
+  Linux ist das Feature sauber deaktiviert.
 
 **Bekannte Grenzen** (ehrlich dokumentiert): Env-Vars sind für den Owner (und root) unter
 `/proc/<pid>/environ` lesbar — wie bei jeder Env-Injection (direnv, teller, bws). Gos GC
