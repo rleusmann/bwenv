@@ -79,6 +79,12 @@ func (c *Client) Lock(ctx context.Context) error {
 	return err
 }
 
+// Sync lässt den Agent den Vault-Stand vom Server holen.
+func (c *Client) Sync(ctx context.Context) error {
+	_, err := c.roundTrip(ctx, &request{Op: "sync"})
+	return err
+}
+
 // StopAgent beendet den Agent-Prozess.
 func (c *Client) StopAgent(ctx context.Context) error {
 	_, err := c.roundTrip(ctx, &request{Op: "stop"})

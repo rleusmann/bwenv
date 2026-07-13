@@ -14,7 +14,13 @@ import (
 )
 
 type fakeBackend struct {
-	values map[string]string // "<item>/<field>" → Wert
+	values    map[string]string // "<item>/<field>" → Wert
+	syncCalls atomic.Int32
+}
+
+func (f *fakeBackend) Sync(context.Context) error {
+	f.syncCalls.Add(1)
+	return nil
 }
 
 func (f *fakeBackend) Fetch(_ context.Context, refs []provider.SecretRef) (map[string]provider.Secret, error) {
@@ -198,6 +204,22 @@ func TestAgentIdleTTLAutoLocks(t *testing.T) {
 	}
 	if n.Load() != 1 {
 		t.Errorf("Backend-Cleanup %d-mal aufgerufen, want 1", n.Load())
+	}
+}
+
+func TestAgentSyncDelegatesToBackend(t *testing.T) {
+	var n atomic.Int32
+	c := startTestAgent(t, 0, &n)
+	ctx := context.Background()
+
+	if err := c.Sync(ctx); err == nil {
+		t.Fatal("Sync bei gesperrtem Agent: Fehler erwartet")
+	}
+	if err := c.Unlock(ctx, "correct horse"); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Sync(ctx); err != nil {
+		t.Fatalf("Sync: %v", err)
 	}
 }
 

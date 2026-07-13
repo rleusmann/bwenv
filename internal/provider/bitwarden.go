@@ -115,6 +115,11 @@ func (c *Client) Lock(ctx context.Context) error {
 	return c.do(ctx, http.MethodPost, "/lock", nil, nil)
 }
 
+// Sync holt den aktuellen Vault-Stand vom Server (POST /sync).
+func (c *Client) Sync(ctx context.Context) error {
+	return c.do(ctx, http.MethodPost, "/sync", nil, nil)
+}
+
 // HealthCheck prüft, ob bw serve erreichbar ist.
 func (c *Client) HealthCheck(ctx context.Context) error {
 	_, err := c.Status(ctx)

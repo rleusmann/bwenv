@@ -48,6 +48,13 @@ func fakeBwServeWithFolders(t *testing.T, status string, items []map[string]any,
 		})
 	})
 
+	mux.HandleFunc("POST /sync", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"success": true,
+			"data":    map[string]any{"object": "message", "title": "Syncing complete."},
+		})
+	})
+
 	mux.HandleFunc("POST /unlock", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Password string `json:"password"`
@@ -293,6 +300,20 @@ func TestFetchFolderNotFound(t *testing.T) {
 	_, err := c.FetchFolder(context.Background(), "gibt es nicht")
 	if err == nil {
 		t.Fatal("FetchFolder für fehlenden Folder: Fehler erwartet")
+	}
+}
+
+func TestClientSync(t *testing.T) {
+	srv := fakeBwServe(t, "unlocked", nil)
+	c := NewClient(srv.URL)
+
+	if err := c.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+
+	srv.Close()
+	if err := c.Sync(context.Background()); err == nil {
+		t.Fatal("Sync gegen toten Server: Fehler erwartet")
 	}
 }
 

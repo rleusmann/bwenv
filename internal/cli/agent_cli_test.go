@@ -161,6 +161,31 @@ func TestAgentStopCommand(t *testing.T) {
 	}
 }
 
+func TestSyncCommand(t *testing.T) {
+	inProjectDir(t, testYAML)
+	ag := startCLITestAgent(t)
+
+	if err := ag.Unlock(context.Background(), "correct horse"); err != nil {
+		t.Fatal(err)
+	}
+	_, stderr, code := execute("sync")
+	if code != 0 {
+		t.Fatalf("sync: exit=%d stderr=%q", code, stderr)
+	}
+}
+
+func TestSyncCommandWithoutAgent(t *testing.T) {
+	inProjectDir(t, testYAML) // Socket zeigt auf toten Pfad
+
+	_, stderr, code := execute("sync")
+	if code == 0 {
+		t.Fatal("sync ohne Agent muss fehlschlagen")
+	}
+	if !strings.Contains(stderr, "bwenv unlock") {
+		t.Errorf("Fehlermeldung ohne Hinweis auf bwenv unlock: %q", stderr)
+	}
+}
+
 func TestExportSilentFailsafeWithLockedAgent(t *testing.T) {
 	inProjectDir(t, testYAML)
 	startCLITestAgent(t) // bleibt gesperrt

@@ -212,6 +212,24 @@ func newDenyCmd() *cobra.Command {
 	}
 }
 
+func newSyncCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "sync",
+		Short: "Vault-Stand vom Server holen (über den laufenden Agent)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, st, ok := tryAgent(cmd.Context())
+			if !ok || st != "unlocked" {
+				return fmt.Errorf("sync braucht einen entsperrten Agent — zuerst `bwenv unlock` ausführen")
+			}
+			if err := c.Sync(cmd.Context()); err != nil {
+				return err
+			}
+			cmd.Println("synchronisiert")
+			return nil
+		},
+	}
+}
+
 func newConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",

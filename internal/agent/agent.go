@@ -177,6 +177,20 @@ func (s *Server) handle(req *request) response {
 		go func() { _ = s.Shutdown() }()
 		return response{OK: true}
 
+	case "sync":
+		backend, err := s.touch()
+		if err != nil {
+			return response{OK: false, Error: err.Error()}
+		}
+		syncer, ok := backend.(interface{ Sync(context.Context) error })
+		if !ok {
+			return response{OK: false, Error: "backend unterstützt kein sync"}
+		}
+		if err := syncer.Sync(ctx); err != nil {
+			return response{OK: false, Error: err.Error()}
+		}
+		return response{OK: true}
+
 	case "resolve", "fetch_folder":
 		backend, err := s.touch()
 		if err != nil {

@@ -16,8 +16,14 @@ bwenv run -- npm start          # Secrets holen und Befehl mit Env-Vars starten
 eval "$(bwenv sh)"              # Variablen in die aktuelle Shell laden
 bwenv show                      # geladene Var-Namen, Werte maskiert
 bwenv lock                      # sofort sperren (auch automatisch nach Idle-TTL, Default 15 min)
+bwenv sync                      # Vault-Änderungen vom Server holen (über den Agent)
 bwenv config server <url>       # Vaultwarden-Endpunkt setzen (Passthrough an bw)
 ```
+
+> **Wichtig:** Solange der Agent läuft, alle Vault-Operationen über `bwenv` machen
+> (insbesondere `bwenv sync` statt `bw sync`). Parallele `bw`-Aufrufe können mit der
+> Agent-Session um den rotierenden Refresh-Token konkurrieren — verliert die `bw`-CLI,
+> loggt sie sich selbst aus und ein erneutes `bw login` wird nötig.
 
 ### Shell-Integration (zsh, direnv-Stil)
 

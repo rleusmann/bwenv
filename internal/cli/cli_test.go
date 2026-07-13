@@ -44,6 +44,8 @@ func (f *fakeProv) Fetch(_ context.Context, refs []provider.SecretRef) (map[stri
 
 func (f *fakeProv) HealthCheck(context.Context) error { return nil }
 
+func (f *fakeProv) Sync(context.Context) error { return nil }
+
 // withFakeProvider ersetzt die Provider-Factory für die Dauer des Tests.
 func withFakeProvider(t *testing.T, p provider.Provider, err error) {
 	t.Helper()
