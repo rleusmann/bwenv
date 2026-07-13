@@ -10,3 +10,8 @@ linters:
       - path: _test\.go
         linters:
           - gosec
+      # Test-Scaffolding für den E2E-Test (Registrierungs-Krypto,
+      # selbstsigniertes Test-Zertifikat) — kein Produkt-Code.
+      - path: internal/integration/
+        linters:
+          - gosec
