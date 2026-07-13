@@ -88,7 +88,8 @@ garantiert keine Speicher-Zeroization.
 ```bash
 go build ./cmd/bwenv    # bauen
 go test -race ./...     # Tests
-golangci-lint run       # Lint
+golangci-lint run       # Lint + Format-Check (gofmt/goimports)
+pre-commit install      # einmalig: Format/Lint als Git-Hook vor jedem Commit
 ```
 
 Benötigt Go ≥ 1.26 und die [`bw`-CLI](https://bitwarden.com/help/cli/) (getestet mit 2026.6.0).

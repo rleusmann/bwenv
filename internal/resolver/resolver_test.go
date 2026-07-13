@@ -51,9 +51,9 @@ func (f *fakeProvider) FetchFolder(_ context.Context, folder string) (map[string
 func newFake() *fakeProvider {
 	return &fakeProvider{
 		values: map[string]string{
-			"prod/api/uri":         "postgres://db",
-			"prod/api/password":    "s3cret",
-			"id-2/password":        "sk_live_abc",
+			"prod/api/uri":          "postgres://db",
+			"prod/api/password":     "s3cret",
+			"id-2/password":         "sk_live_abc",
 			"gh cli token/password": "ghp_xyz",
 		},
 		folders: map[string]map[string]string{
