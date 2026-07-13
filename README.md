@@ -95,4 +95,4 @@ Benötigt Go ≥ 1.26 und die [`bw`-CLI](https://bitwarden.com/help/cli/) (getes
 
 ## Lizenz
 
-TBD.
+[MIT](LICENSE)
