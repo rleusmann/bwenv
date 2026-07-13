@@ -115,7 +115,7 @@ func exportStatement(name, value string) string {
 // gelaufen ist.
 const zshHookSnippet = `# bwenv hook für zsh — in der .zshrc: eval "$(bwenv hook zsh)"
 _bwenv_hook() {
-  eval "$(command bwenv export --hook --timeout=300ms)"
+  eval "$(command bwenv export --hook --timeout=1s)"
 }
 typeset -ag precmd_functions
 if (( ! ${precmd_functions[(I)_bwenv_hook]} )); then
