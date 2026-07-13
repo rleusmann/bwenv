@@ -22,10 +22,20 @@ jobs:
           go-version: stable
       - name: Tests
         run: go test ./...
+      # Kurzlebiges Installations-Token der GitHub App (statt PAT),
+      # nur für das Tap-Repo gescoped.
+      - name: App-Token für homebrew-tap erzeugen
+        id: tap-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.TAP_APP_ID }}
+          private-key: ${{ secrets.TAP_APP_PRIVATE_KEY }}
+          owner: rleusmann
+          repositories: homebrew-tap
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          TAP_GITHUB_TOKEN: ${{ steps.tap-token.outputs.token }}
