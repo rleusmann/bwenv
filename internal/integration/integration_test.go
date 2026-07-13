@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -52,14 +53,23 @@ func startVaultwarden(t *testing.T) (url, certPath string) {
 	port := l.Addr().(*net.TCPAddr).Port
 	_ = l.Close()
 
+	// ghcr statt Docker Hub: GitHub-Runner laufen sonst ins Hub-Rate-Limit.
+	image := os.Getenv("VAULTWARDEN_IMAGE")
+	if image == "" {
+		image = "ghcr.io/dani-garcia/vaultwarden:latest"
+	}
 	out, err := exec.Command("docker", "run", "-d", "--rm",
 		"-p", fmt.Sprintf("127.0.0.1:%d:80", port),
 		"-v", sslDir+":/ssl:ro",
 		"-e", "SIGNUPS_ALLOWED=true",
 		"-e", "I_REALLY_WANT_VOLATILE_STORAGE=true", // ephemerer Test-Container, bewusst ohne Volume
 		"-e", `ROCKET_TLS={certs="/ssl/cert.pem",key="/ssl/key.pem"}`,
-		"vaultwarden/server:latest").Output()
+		image).Output()
 	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			t.Fatalf("vaultwarden-Container starten: %v\n%s", err, exitErr.Stderr)
+		}
 		t.Fatalf("vaultwarden-Container starten: %v", err)
 	}
 	containerID := strings.TrimSpace(string(out))
