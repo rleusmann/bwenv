@@ -33,6 +33,7 @@ ohne dass Secrets in Shell-History, Prozessliste oder Klartext-Dateien landen.`,
 	root.SetOut(os.Stdout)
 
 	root.AddCommand(
+		newInitCmd(),
 		newRunCmd(),
 		newExportCmd(),
 		newShowCmd(),

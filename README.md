@@ -27,6 +27,7 @@ Paketmanager-Support ist geplant.
 ## Nutzung
 
 ```bash
+bwenv init                      # ./bwenv.yaml mit Platzhaltern anlegen (--global: globale Config)
 bwenv unlock                    # einmal pro Boot: Agent starten + Session entsperren
 bwenv unlock --enroll-touchid   # optional (macOS): danach entsperrt ein Touch-ID-Tap
 bwenv run -- npm start          # Secrets holen und Befehl mit Env-Vars starten
