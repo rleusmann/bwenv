@@ -19,7 +19,8 @@ brew install --cask bwenv
 go install github.com/rleusmann/bwenv/cmd/bwenv@latest
 ```
 
-Zusätzlich wird die [`bw`-CLI](https://bitwarden.com/help/cli/) benötigt (`brew install bitwarden-cli`).
+Der Cask installiert die benötigte [`bw`-CLI](https://bitwarden.com/help/cli/) automatisch mit;
+bei `go install` muss sie separat vorhanden sein (`brew install bitwarden-cli`).
 Linux-Binaries liegen an den [GitHub-Releases](https://github.com/rleusmann/bwenv/releases);
 Paketmanager-Support ist geplant.
 
