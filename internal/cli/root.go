@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"os"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -26,6 +27,10 @@ ohne dass Secrets in Shell-History, Prozessliste oder Klartext-Dateien landen.`,
 			_ = syscall.Setrlimit(syscall.RLIMIT_CORE, &syscall.Rlimit{Cur: 0, Max: 0})
 		},
 	}
+
+	// Ohne explizites SetOut schreibt cobra's cmd.Print auf STDERR —
+	// dann wäre eval "$(bwenv …)" leer und Ausgaben umgingen Pipes.
+	root.SetOut(os.Stdout)
 
 	root.AddCommand(
 		newRunCmd(),
