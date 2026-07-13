@@ -1,0 +1,27 @@
+version: 2
+
+project_name: bwenv
+
+builds:
+  - main: ./cmd/bwenv
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/rleusmann/bwenv/internal/cli.Version={{.Version}}
+
+archives:
+  - formats: [tar.gz]
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^ci:"
+      - "^chore:"
