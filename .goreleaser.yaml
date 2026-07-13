@@ -3,11 +3,26 @@ version: 2
 project_name: bwenv
 
 builds:
-  - main: ./cmd/bwenv
+  # darwin mit cgo: Touch ID (LocalAuthentication/Security.framework)
+  # funktioniert nur in cgo-Builds → läuft auf einem macOS-Runner.
+  - id: bwenv-darwin
+    main: ./cmd/bwenv
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/rleusmann/bwenv/internal/cli.Version={{.Version}}
+
+  # linux statisch (kein Touch ID → cgo unnötig), Cross-Compile vom macOS-Runner.
+  - id: bwenv-linux
+    main: ./cmd/bwenv
     env:
       - CGO_ENABLED=0
     goos:
-      - darwin
       - linux
     goarch:
       - amd64
